@@ -1,48 +1,56 @@
 const takeScreenshot = require('take-screenshots');
 const mergeImg = require('merge-img');
 const fetch = require("node-fetch");
+const { Cluster } = require('puppeteer-cluster');
 
+
+// Config
 const ophanAPI = 'https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fnews?count=50';
+const formatOphanUrl = url => url;
+// const formatOphanUrl = url => url.replace('https://www.theguardian.com/', `http://localhost:3030/AmpArticle?url=https://www.theguardian.com/`);
+const addSuffix = '?guui';
+// const addSuffix = '';
+const clusterAmount = 10;
+const pupeteerScreenshotSettings = { fullPage: true };
 
-function delay(t, v) {
-    return new Promise(function(resolve) { 
-        setTimeout(resolve.bind(null, v), t)
-    });
- }
+// Tracking
+let numOfUrl = 0;
+let numCompleted = 0;
 
+ // Go
 (async () => {
 
-    const urls = await fetch(ophanAPI).then(resp => resp.json())
+        const urls = await fetch(ophanAPI).then(resp => resp.json())
 
-    
+        numOfUrl = urls.length;
+        console.log(`${numOfUrl} URLs`)
 
-    let queue = Promise.resolve(); // in ES6 or BB, just Promise.resolve();
-
-    urls.forEach(function(urlObj){
-        queue = queue.then(function(res){
-            console.log("Calling async func for", urlObj.url);
-            return takeScreens(urlObj.url)
+        const cluster = await Cluster.launch({
+            concurrency: Cluster.CONCURRENCY_CONTEXT,
+            maxConcurrency: clusterAmount
+          });
+        
+    await cluster.task(async ({ page, data }) => {
+      
+        
+        let [img, img2] = await Promise.all([
+             (async () => {console.log("Taking a screenshot of ", data.url); await page.goto(data.url); return await page.screenshot(pupeteerScreenshotSettings) })(),
+             (async () => { await page.goto(data.url2); return await page.screenshot(pupeteerScreenshotSettings) })(),
+        ]);
+              
+        await mergeImg([img, img2])
+            .then((img) => {
+                // Save image as file
+                img.write(`screenshots/${Math.random()}.png`, () => console.log(`${data.url} done`));
+                console.log(`Completed ${numCompleted = numCompleted + 1} of ${numOfUrl}`)
         });
     });
-
-    queue.then(function(){
-        console.log("Done!");
+        
+    urls.forEach(function (urlObj) {
+        const url = formatOphanUrl(urlObj.url);
+        cluster.queue({ url, url2: `${url}${addSuffix}` });
     });
-    
+        
+    await cluster.idle();
+    await cluster.close();
 })();
-
-const takeScreens = async (url) => {
-    let img = await takeScreenshot(url, { viewport: { width: 1400, height: 800 }, screenshot: { fullPage: true } });
-    await delay(1000);
-    let img2 = await takeScreenshot(`${url}?guui`, {viewport: {width: 1400, height: 800}, screenshot: { fullPage: true } });
-    await delay(1000);
-    await mergeImg([img, img2])
-        .then((img) => {
-            console.log(img)
-            // Save image as file
-            img.write(`screenshots/${Math.random()}.png`, () => console.log(`${url} done`));
-        });
- 
-    await takeScreenshot.closeBrowser();
-    return true;
-    };
