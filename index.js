@@ -31,12 +31,11 @@ let numCompleted = 0;
           });
         
     await cluster.task(async ({ page, data }) => {
-      
-        
-        let [img, img2] = await Promise.all([
-             (async () => {console.log("Taking a screenshot of ", data.url); await page.goto(data.url); return await page.screenshot(pupeteerScreenshotSettings) })(),
-             (async () => { await page.goto(data.url2); return await page.screenshot(pupeteerScreenshotSettings) })(),
-        ]);
+        console.log(`Taking screenshot of ${data.url}`)
+        await page.goto(data.url);
+        const img = await page.screenshot(pupeteerScreenshotSettings)
+        await page.goto(data.url2);
+        const img2 = await page.screenshot(pupeteerScreenshotSettings)
               
         await mergeImg([img, img2])
             .then((img) => {
