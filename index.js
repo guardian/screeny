@@ -1,55 +1,115 @@
-const takeScreenshot = require('take-screenshots');
-const mergeImg = require('merge-img');
+const takeScreenshot = require("take-screenshots");
+const mergeImg = require("merge-img");
 const fetch = require("node-fetch");
-const { Cluster } = require('puppeteer-cluster');
+const { Cluster } = require("puppeteer-cluster");
 
+const autoScroll = async page => {
+  await page.evaluate(async () => {
+    await new Promise((resolve, reject) => {
+      let totalHeight = 0;
+      let distance = 200;
+      window.scrollTo(0, 0);
+      let timer = setInterval(() => {
+        let scrollHeight = document.body.scrollHeight;
+        window.scrollBy(0, distance);
+        totalHeight += distance;
+        if (totalHeight >= scrollHeight) {
+          clearInterval(timer);
+          resolve();
+        }
+      }, 300);
+    });
+  });
+};
 
 // Config
-const ophanAPI = 'https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fnews?count=50';
+const ophanAPI =
+  "https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fnews?count=100";
 const formatOphanUrl = url => url;
-// const formatOphanUrl = url => url.replace('https://www.theguardian.com/', `http://localhost:3030/AmpArticle?url=https://www.theguardian.com/`);
-const addSuffix = '?guui';
-// const addSuffix = '';
-const clusterAmount = 10;
-const pupeteerScreenshotSettings = { fullPage: true };
+// const formatOphanUrl = url =>
+//   url.replace(
+//     "https://www.theguardian.com/",
+//     `http://localhost:3030/article?url=https://www.theguardian.com/`
+//   );
+const addSuffix1 = "?dcr";
+const addSuffix2 = "?dcr=false";
+const cookieToSetIn1 = {
+  domain: "www.theguardian.com",
+  expirationDate: 1577118107,
+  hostOnly: true,
+  httpOnly: true,
+  name: "X-GU-Experiment-1perc-A",
+  path: "/",
+  sameSite: "unspecified",
+  secure: false,
+  session: false,
+  storeId: "0",
+  value: "true",
+  id: 31
+};
+const clusterAmount = 5;
+const pupeteerScreenshotSettings = {
+  fullPage: true,
+  defaultViewport: { width: 1900 }
+};
 
 // Tracking
 let numOfUrl = 0;
 let numCompleted = 0;
 
- // Go
+// Go
 (async () => {
+  const urls = await fetch(ophanAPI).then(resp => resp.json());
 
-        const urls = await fetch(ophanAPI).then(resp => resp.json())
+  numOfUrl = urls.length;
+  console.log(`${numOfUrl} URLs`);
 
-        numOfUrl = urls.length;
-        console.log(`${numOfUrl} URLs`)
+  const cluster = await Cluster.launch({
+    concurrency: Cluster.CONCURRENCY_BROWSER,
+    maxConcurrency: clusterAmount,
+    monitor: true,
+    workerCreationDelay: 100
+  });
 
-        const cluster = await Cluster.launch({
-            concurrency: Cluster.CONCURRENCY_CONTEXT,
-            maxConcurrency: clusterAmount
-          });
-        
-    await cluster.task(async ({ page, data }) => {
-        console.log(`Taking screenshot of ${data.url}`)
-        await page.goto(data.url);
-        const img = await page.screenshot(pupeteerScreenshotSettings)
-        await page.goto(data.url2);
-        const img2 = await page.screenshot(pupeteerScreenshotSettings)
-              
-        await mergeImg([img, img2])
-            .then((img) => {
-                // Save image as file
-                img.write(`screenshots/${Math.random()}.png`, () => console.log(`${data.url} done`));
-                console.log(`Completed ${numCompleted = numCompleted + 1} of ${numOfUrl}`)
-        });
+  await cluster.task(async ({ page, data }) => {
+    await page.setCookie(cookieToSetIn1);
+    await page.goto(data.url, { waitUntil: ["load", "networkidle2"] });
+    console.log("Page 1: On page");
+    await autoScroll(page, "Page 1:");
+    console.log("Page 1: Scrolled");
+    await page.waitFor(1000);
+    const img = await page.screenshot(pupeteerScreenshotSettings);
+    console.log(`Page 1: screenshot taken of ${data.url}`);
+    console.log("Page 2: Going to " + data.url2);
+    await page.goto(data.url2, { waitUntil: ["load", "networkidle2"] });
+    console.log("Page 2: On page " + data.url2);
+    await autoScroll(page, "Page 2:");
+    console.log("Page 2: Scrolled");
+    await page.waitFor(1000);
+    console.log("Page 2: Waited, ready for screenshot");
+    const img2 = await page.screenshot(pupeteerScreenshotSettings);
+    console.log(`Page 2: screenshot taken of ${data.url2}`);
+
+    await mergeImg([img, img2]).then(img => {
+      // Save image as file
+
+      img.write(`screenshots/${Math.random()}.png`, () => {
+        console.log(`${data.url} done`);
+        console.log(
+          `Completed ${(numCompleted = numCompleted + 1)} of ${numOfUrl}`
+        );
+      });
     });
-        
-    urls.forEach(function (urlObj) {
-        const url = formatOphanUrl(urlObj.url);
-        cluster.queue({ url, url2: `${url}${addSuffix}` });
+  });
+
+  urls.forEach(function(urlObj) {
+    const url = urlObj.url;
+    cluster.queue({
+      url: `${formatOphanUrl(url)}${addSuffix1}`,
+      url2: `${url}${addSuffix2}`
     });
-        
-    await cluster.idle();
-    await cluster.close();
+  });
+
+  await cluster.idle();
+  await cluster.close();
 })();
