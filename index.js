@@ -23,8 +23,14 @@ const autoScroll = async page => {
 };
 
 // Config
+//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fnews
+//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fcomment
+//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Ffeatures
+//https://api.ophan.co.uk/api/mostread/keywordtag/sport%2Fsport
+//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Finterview
+//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Frecipes
 const ophanAPI =
-  "https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fnews?count=100";
+  "https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fmatchreports?count=50";
 const formatOphanUrl = url => url;
 // const formatOphanUrl = url =>
 //   url.replace(
@@ -47,10 +53,10 @@ const cookieToSetIn1 = {
   value: "true",
   id: 31
 };
-const clusterAmount = 5;
+const clusterAmount = 4;
 const pupeteerScreenshotSettings = {
   fullPage: true,
-  defaultViewport: { width: 1900 }
+  defaultViewport: { width: 414 }
 };
 
 // Tracking
@@ -73,6 +79,7 @@ let numCompleted = 0;
 
   await cluster.task(async ({ page, data }) => {
     await page.setCookie(cookieToSetIn1);
+    await page.setViewport({width: pupeteerScreenshotSettings.defaultViewport.width, height: 2000});
     await page.goto(data.url, { waitUntil: ["load", "networkidle2"] });
     console.log("Page 1: On page");
     await autoScroll(page, "Page 1:");
@@ -83,9 +90,10 @@ let numCompleted = 0;
     console.log("Page 2: Going to " + data.url2);
     await page.goto(data.url2, { waitUntil: ["load", "networkidle2"] });
     console.log("Page 2: On page " + data.url2);
+    await page.waitFor(2000);
     await autoScroll(page, "Page 2:");
     console.log("Page 2: Scrolled");
-    await page.waitFor(1000);
+    await page.waitFor(2000);
     console.log("Page 2: Waited, ready for screenshot");
     const img2 = await page.screenshot(pupeteerScreenshotSettings);
     console.log(`Page 2: screenshot taken of ${data.url2}`);

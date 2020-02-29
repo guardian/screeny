@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "start": "node --max-old-space-size=16000 index.js"
+    "start": "node --max-old-space-size=25000 index.js"
   },
   "dependencies": {
     "merge-img": "^2.1.3",
