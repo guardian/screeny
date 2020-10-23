@@ -1,3 +1,24 @@
+///// 
+
+
+// This is old.
+
+
+// Use index1.js instead, it uses a screenshot API so is more stable.
+
+
+// Keeping this around for prosperity.
+
+
+
+/////
+
+
+
+
+
+
+
 const takeScreenshot = require("take-screenshots");
 const mergeImg = require("merge-img");
 const fetch = require("node-fetch");
