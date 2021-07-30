@@ -1,144 +1,113 @@
-///// 
+const { Command } = require('commander');
+const fs = require('fs');
+const mergeImg = require('merge-img');
+const path = require('path');
 
+const { fetchImg, getFileName } = require('./lib/helpers')
+const { getUrlsByTag, getUrlsForAllTags } = require('./lib/ophanHelper');
+const { readFromSpreadSheet } = require('./lib/spreadsheetHelper');
 
-// This is old.
+require('dotenv').config()
 
+const program = new Command()
 
-// Use index1.js instead, it uses a screenshot API so is more stable.
-
-
-// Keeping this around for prosperity.
-
-
-
-/////
-
-
-
-
-
-
-
-const takeScreenshot = require("take-screenshots");
-const mergeImg = require("merge-img");
-const fetch = require("node-fetch");
-const { Cluster } = require("puppeteer-cluster");
-
-const autoScroll = async page => {
-  await page.evaluate(async () => {
-    await new Promise((resolve, reject) => {
-      let totalHeight = 0;
-      let distance = 200;
-      window.scrollTo(0, 0);
-      let timer = setInterval(() => {
-        let scrollHeight = document.body.scrollHeight;
-        window.scrollBy(0, distance);
-        totalHeight += distance;
-        if (totalHeight >= scrollHeight) {
-          clearInterval(timer);
-          resolve();
-        }
-      }, 300);
-    });
-  });
-};
-
-// Config
-//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fnews
-//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fcomment
-//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Ffeatures
-//https://api.ophan.co.uk/api/mostread/keywordtag/sport%2Fsport
-//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Finterview
-//https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Frecipes
-const ophanAPI =
-  "https://api.ophan.co.uk/api/mostread/keywordtag/tone%2Fmatchreports?count=50";
-const formatOphanUrl = url => url;
-// const formatOphanUrl = url =>
-//   url.replace(
-//     "https://www.theguardian.com/",
-//     `http://localhost:3030/article?url=https://www.theguardian.com/`
-//   );
 const addSuffix1 = "?dcr";
 const addSuffix2 = "?dcr=false";
-const cookieToSetIn1 = {
-  domain: "www.theguardian.com",
-  expirationDate: 1577118107,
-  hostOnly: true,
-  httpOnly: true,
-  name: "X-GU-Experiment-1perc-A",
-  path: "/",
-  sameSite: "unspecified",
-  secure: false,
-  session: false,
-  storeId: "0",
-  value: "true",
-  id: 31
-};
-const clusterAmount = 4;
-const pupeteerScreenshotSettings = {
-  fullPage: true,
-  defaultViewport: { width: 414 }
-};
 
 // Tracking
 let numOfUrl = 0;
 let numCompleted = 0;
 
+const parseSheetsInfo = option => {
+  const spreadsheetId = option[0]
+  const sheetId = option.length > 1 ? option[1] : undefined;
+  return { spreadsheetId, sheetId };
+}
+
 // Go
-(async () => {
-  const urls = await fetch(ophanAPI).then(resp => resp.json());
+async function main() {
+  // prerequisite
+  const screenshotsDir = `${path.resolve(__dirname)}/screenshots`;
+  try {
+    if (!fs.existsSync(screenshotsDir)) {
+      fs.mkdirSync(screenshotsDir);
+    }
+  } catch (e) {
+    throw new Error('Cannot validate screenshots directory')
+  }
+  
+  program
+    .description('given a list of URLs this will return a png of each page rendered via DCR vs Frontend')
+    .option('--get-by-tag <tag>', 'gets article urls from ophan for provided tag')
+    .option('--get-for-all-tags', 'gets 10 article urls from ophan for every tag')
+    .option('--import-from-google-sheets <info...>', 'gets article urls from google sheet');
 
-  numOfUrl = urls.length;
-  console.log(`${numOfUrl} URLs`);
+  // set restriction so only 1 can be provided at a time?
 
-  const cluster = await Cluster.launch({
-    concurrency: Cluster.CONCURRENCY_BROWSER,
-    maxConcurrency: clusterAmount,
-    monitor: true,
-    workerCreationDelay: 100
-  });
+  program.parse(process.argv);
+  const options = program.opts();
+  let urls = [];
 
-  await cluster.task(async ({ page, data }) => {
-    await page.setCookie(cookieToSetIn1);
-    await page.setViewport({width: pupeteerScreenshotSettings.defaultViewport.width, height: 2000});
-    await page.goto(data.url, { waitUntil: ["load", "networkidle2"] });
-    console.log("Page 1: On page");
-    await autoScroll(page, "Page 1:");
-    console.log("Page 1: Scrolled");
-    await page.waitFor(1000);
-    const img = await page.screenshot(pupeteerScreenshotSettings);
-    console.log(`Page 1: screenshot taken of ${data.url}`);
-    console.log("Page 2: Going to " + data.url2);
-    await page.goto(data.url2, { waitUntil: ["load", "networkidle2"] });
-    console.log("Page 2: On page " + data.url2);
-    await page.waitFor(2000);
-    await autoScroll(page, "Page 2:");
-    console.log("Page 2: Scrolled");
-    await page.waitFor(2000);
-    console.log("Page 2: Waited, ready for screenshot");
-    const img2 = await page.screenshot(pupeteerScreenshotSettings);
-    console.log(`Page 2: screenshot taken of ${data.url2}`);
+  if (!Object.keys(options).length > 0) throw new Error('Must provide an option')
 
-    await mergeImg([img, img2]).then(img => {
-      // Save image as file
+  if (options.getByTag) {
+    urls = await getUrlsByTag(options.getByTag);
+  }
 
-      img.write(`screenshots/${Math.random()}.png`, () => {
-        console.log(`${data.url} done`);
-        console.log(
-          `Completed ${(numCompleted = numCompleted + 1)} of ${numOfUrl}`
-        );
-      });
+  if (options.getForAllTags) {
+    urls = await getUrlsForAllTags(options.getByTag);
+  }
+
+  if (options.importFromGoogleSheets) {
+    const { spreadsheetId, sheetId} = parseSheetsInfo(options.importFromGoogleSheets)
+    urls = await readFromSpreadSheet(spreadsheetId, sheetId);
+  }
+
+  console.log('urls', urls);
+  numOfUrl = urls.length * 2;
+  console.log(`No. of URLs: ${urls.length}, no. calls to screeny: ${numOfUrl}`);
+
+  const makeScreenshot = async (url, mobileString) => {
+    const urlDcr = `${url}${addSuffix1}`;
+    const urlFrontend = `${url}${addSuffix2}`;
+    let skip = false;
+
+    console.log(`Fetching ${urlDcr} and ${urlFrontend}`);
+
+    const [img1, img2] = await Promise.all([fetchImg(urlDcr), fetchImg(urlFrontend)]).catch((e) => {
+      console.log('error', e);
+      skip = true;
     });
-  });
 
-  urls.forEach(function(urlObj) {
-    const url = urlObj.url;
-    cluster.queue({
-      url: `${formatOphanUrl(url)}${addSuffix1}`,
-      url2: `${url}${addSuffix2}`
-    });
-  });
+    console.log(`Skip ${skip}`);
+    if (!skip) {
+      try {
+        console.log('merging images')
+        await mergeImg([img1, img2]).then(img => {
+          img.write(getFileName(url), () => console.log(
+            `Completed ${(numCompleted = numCompleted + 2)} of ${numOfUrl}`)
+          )
+        });
+      } catch (e) {
+        console.log(e);
+      }
+    }
+  };
 
-  await cluster.idle();
-  await cluster.close();
-})();
+  let timeout = 1000;
+  for (const url of urls) {
+    setTimeout(function () {
+      makeScreenshot(url);
+    }, (timeout += 500));
+
+    // can add in as an option later?
+    // setTimeout(function () {
+    //   makeScreenshot(urlObj, "&user_agent=mobile&width=320");
+    // }, (timeout += 1000));
+  }
+};
+
+main().catch(e => {
+  console.log(`ERR: ${e.message}, ${e.stack}`);
+  process.exit(1);
+})
