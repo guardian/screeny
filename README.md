@@ -14,6 +14,7 @@ If reading URLs from Google sheets, you'll need to get credentials to authorise 
 Then:
 
 ```
+nvm use
 yarn
 node --max-old-space-size=25000 index.js
 ```
