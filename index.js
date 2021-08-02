@@ -3,9 +3,9 @@ const fs = require('fs');
 const mergeImg = require('merge-img');
 const path = require('path');
 
-const { fetchImg, getFileName } = require('./lib/helpers')
-const { getUrlsByTag, getUrlsForAllTags } = require('./lib/ophanHelper');
-const { readFromSpreadSheet } = require('./lib/spreadsheetHelper');
+const { readFromSheet } = require('./lib/googleSheets');
+const { getUrlsByTag, getUrlsForAllTags } = require('./lib/ophan');
+const { fetchImg } = require('./lib/urlBox')
 
 require('dotenv').config()
 
@@ -24,9 +24,16 @@ const parseSheetsInfo = option => {
   return { spreadsheetId, sheetId };
 }
 
-// Go
-async function main() {
-  // prerequisite
+const formatUrlForSaving = url => {
+  const myUrl = new URL(url);
+  return myUrl.pathname.replace(/\//gi, "-").replace(/\./gi, "dot");
+}
+
+const getFileName = url => {
+  return `screenshots/${formatUrlForSaving(url)}.png`;
+};
+
+const validateDir = () => {
   const screenshotsDir = `${path.resolve(__dirname)}/screenshots`;
   try {
     if (!fs.existsSync(screenshotsDir)) {
@@ -35,6 +42,12 @@ async function main() {
   } catch (e) {
     throw new Error('Cannot validate screenshots directory')
   }
+}
+
+// Go
+async function main() {
+  // prerequisite
+  validateDir();
   
   program
     .description('given a list of URLs this will return a png of each page rendered via DCR vs Frontend')
@@ -48,6 +61,7 @@ async function main() {
   const options = program.opts();
   let urls = [];
 
+  // set default option?
   if (!Object.keys(options).length > 0) throw new Error('Must provide an option')
 
   if (options.getByTag) {
@@ -60,7 +74,7 @@ async function main() {
 
   if (options.importFromGoogleSheets) {
     const { spreadsheetId, sheetId} = parseSheetsInfo(options.importFromGoogleSheets)
-    urls = await readFromSpreadSheet(spreadsheetId, sheetId);
+    urls = await readFromSheet(spreadsheetId, sheetId);
   }
 
   console.log('urls', urls);
