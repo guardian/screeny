@@ -2,3 +2,6 @@
 node_modules/
 screenshots/
 oldscreens/
+.env
+credentials.json
+token.json
