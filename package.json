@@ -7,7 +7,7 @@
     "start": "echo 'check readme'"
   },
   "dependencies": {
-    "axios": "^0.19.2",
+    "axios": "^0.21.2",
     "commander": "^8.1.0",
     "dotenv": "^10.0.0",
     "googleapis": "39",
