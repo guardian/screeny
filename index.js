@@ -11,8 +11,7 @@ require('dotenv').config()
 
 const program = new Command()
 
-const addSuffix1 = "?dcr";
-const addSuffix2 = "?dcr=false";
+const addSuffix = "?dcr";
 
 // Tracking
 let numOfUrl = 0;
@@ -53,13 +52,15 @@ async function main() {
     .description('given a list of URLs this will return a png of each page rendered via DCR vs Frontend')
     .option('--get-by-tag <tag>', 'gets article urls from ophan for provided tag')
     .option('--get-for-all-tags', 'gets 10 article urls from ophan for every tag')
-    .option('--import-from-google-sheets <info...>', 'gets article urls from google sheet');
+    .option('--import-from-google-sheets <info...>', 'gets article urls from google sheet')
+    .option('--compare-to-dcr', 'gets articles via DCR too and outputs images side by side');
 
-  // set restriction so only 1 can be provided at a time?
+  // set appropriate restrictions on options?
 
   program.parse(process.argv);
   const options = program.opts();
   let urls = [];
+  let compareToDcr = false;
 
   // set default option?
   if (!Object.keys(options).length > 0) throw new Error('Must provide an option')
@@ -77,18 +78,26 @@ async function main() {
     urls = await readFromSheet(spreadsheetId, sheetId);
   }
 
+  if (options.compareToDcr) {
+    compareToDcr = true;
+  }
   console.log('urls', urls);
-  numOfUrl = urls.length * 2;
+  numOfUrl = compareToDcr ? urls.length * 2 : urls.length;
   console.log(`No. of URLs: ${urls.length}, no. calls to screeny: ${numOfUrl}`);
 
   const makeScreenshot = async (url, mobileString) => {
-    const urlDcr = `${url}${addSuffix1}`;
-    const urlFrontend = `${url}${addSuffix2}`;
+    const urlDcr = `${url}${addSuffix}`;
     let skip = false;
 
-    console.log(`Fetching ${urlDcr} and ${urlFrontend}`);
+    const log = `Fetching: ${url}` + (compareToDcr ? ` and ${urlDcr}` : ''); 
+    console.log(log);
 
-    const [img1, img2] = await Promise.all([fetchImg(urlDcr), fetchImg(urlFrontend)]).catch((e) => {
+    const promises = [fetchImg(url)]
+    if (compareToDcr) {
+      promises.push(fetchImg(urlDcr));
+    }
+
+    const images = await Promise.all(promises).catch((e) => {
       console.log('error', e);
       skip = true;
     });
@@ -97,10 +106,11 @@ async function main() {
     if (!skip) {
       try {
         console.log('merging images')
-        await mergeImg([img1, img2]).then(img => {
-          img.write(getFileName(url), () => console.log(
-            `Completed ${(numCompleted = numCompleted + 2)} of ${numOfUrl}`)
-          )
+        await mergeImg(images).then(img => {
+          img.write(getFileName(url), () => {
+            numCompleted = numCompleted + (compareToDcr ? 2 : 1);
+            console.log(`Completed ${numCompleted} of ${numOfUrl}`);
+          });
         });
       } catch (e) {
         console.log(e);
