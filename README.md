@@ -5,9 +5,9 @@ This tool generates screenshots of rendered pages, it uses a 3rd party [urlBox](
 Screenshots will be in png format and will be stored in `./screenshots`.
 
 ## Getting started
-Get a key for urlBox and store in `./.env` file: `URL_BOX_KEY=yourkey`.
+Get a key for urlBox and store in `./.env` file: `URL_BOX_KEY=yourkey`. Note - this is the public key for urlBox.
 
-If reading URLs from Google sheets, you'll need to get credentials to authorise the application. Credentials should live in `./credentials.json`.
+If reading URLs from Google sheets, you'll need to get credentials to authorise the application. Credentials should live in `./credentials.json`. This is a good starting point for generating a credentials.json for Google docs access: https://developers.google.com/workspace/guides/create-credentials
 
 Options:
 - `--get-by-tag <tag>`: screeny will retrieve 10 articles from Ophan by the given tag and use these URLs in the requests to urlBox
