@@ -50,7 +50,6 @@ async function main() {
     .description('given a list of URLs this will return a png of each page rendered via DCR vs Frontend')
     .option('--get-by-tag <tag>', 'gets article urls from ophan for provided tag')
     .option('--get-for-all-tags', 'gets 10 article urls from ophan for every tag')
-    .option('--import-from-google-sheets <info...>', 'gets article urls from google sheet')
     .option('--import-from-csv <file path>', 'reads article urls from a CSV file')
     .option('--compare-to-dcr', 'gets articles via DCR too and outputs images side by side');
 
