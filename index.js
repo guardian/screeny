@@ -2,7 +2,7 @@ import { Command } from 'commander';
 import fs from 'fs'
 import { getUrlsByTag, getUrlsForAllTags } from './lib/ophan.js';
 import { fetchImg } from './lib/urlBox.js';
-import { readFromCSV } from './lib/csv.js';
+import { readFromFile } from './lib/txt.js';
 import mergeImg from './lib/merge-img/index.js';
 
 import * as dotenv from 'dotenv'
@@ -50,7 +50,7 @@ async function main() {
     .description('given a list of URLs this will return a png of each page rendered via DCR vs Frontend')
     .option('--get-by-tag <tag>', 'gets article urls from ophan for provided tag')
     .option('--get-for-all-tags', 'gets 10 article urls from ophan for every tag')
-    .option('--import-from-csv <file path>', 'reads article urls from a CSV file')
+    .option('--import-from-file <file path>', 'reads article urls from a TXT file')
     .option('--compare-to-dcr', 'gets articles via DCR too and outputs images side by side');
 
   // set appropriate restrictions on options?
@@ -71,14 +71,15 @@ async function main() {
     urls = await getUrlsForAllTags(options.getByTag);
   }
 
-  if (options.importFromCsv) {
-    urls = readFromCSV(options.importFromCsv); 
+  if (options.importFromFile) {
+    urls = readFromFile(options.importFromFile); 
   }
 
   if (options.compareToDcr) {
     compareToDcr = true;
   }
   console.log('urls', urls);
+
   numOfUrl = compareToDcr ? urls.length * 2 : urls.length;
   console.log(`No. of URLs: ${urls.length}, no. calls to screeny: ${numOfUrl}`);
 
