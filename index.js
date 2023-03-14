@@ -1,13 +1,12 @@
-const { Command } = require('commander');
-const fs = require('fs');
-const mergeImg = require('merge-img');
-const path = require('path');
+import { Command } from 'commander';
+import fs from 'fs'
+import { getUrlsByTag, getUrlsForAllTags } from './lib/ophan.js';
+import { fetchImg } from './lib/urlBox.js';
+import { readFromFile } from './lib/txt.js';
+import mergeImg from './lib/merge-img/index.js';
 
-const { readFromSheet } = require('./lib/googleSheets');
-const { getUrlsByTag, getUrlsForAllTags } = require('./lib/ophan');
-const { fetchImg } = require('./lib/urlBox')
-
-require('dotenv').config()
+import * as dotenv from 'dotenv'
+dotenv.config()
 
 const program = new Command()
 
@@ -33,10 +32,9 @@ const getFileName = url => {
 };
 
 const validateDir = () => {
-  const screenshotsDir = `${path.resolve(__dirname)}/screenshots`;
   try {
-    if (!fs.existsSync(screenshotsDir)) {
-      fs.mkdirSync(screenshotsDir);
+    if (!fs.existsSync('./screenshots')) {
+      fs.mkdirSync('./screenshots');
     }
   } catch (e) {
     throw new Error('Cannot validate screenshots directory')
@@ -52,7 +50,7 @@ async function main() {
     .description('given a list of URLs this will return a png of each page rendered via DCR vs Frontend')
     .option('--get-by-tag <tag>', 'gets article urls from ophan for provided tag')
     .option('--get-for-all-tags', 'gets 10 article urls from ophan for every tag')
-    .option('--import-from-google-sheets <info...>', 'gets article urls from google sheet')
+    .option('--import-from-file <file path>', 'reads article urls from a TXT file')
     .option('--compare-to-dcr', 'gets articles via DCR too and outputs images side by side');
 
   // set appropriate restrictions on options?
@@ -73,15 +71,15 @@ async function main() {
     urls = await getUrlsForAllTags(options.getByTag);
   }
 
-  if (options.importFromGoogleSheets) {
-    const { spreadsheetId, sheetId} = parseSheetsInfo(options.importFromGoogleSheets)
-    urls = await readFromSheet(spreadsheetId, sheetId);
+  if (options.importFromFile) {
+    urls = readFromFile(options.importFromFile); 
   }
 
   if (options.compareToDcr) {
     compareToDcr = true;
   }
   console.log('urls', urls);
+
   numOfUrl = compareToDcr ? urls.length * 2 : urls.length;
   console.log(`No. of URLs: ${urls.length}, no. calls to screeny: ${numOfUrl}`);
 
