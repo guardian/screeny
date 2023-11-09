@@ -1,3 +1,6 @@
+> [!WARNING] 
+> This repo has been archived by the WebX team on 09/11/23 because it is not being used
+
 # screeny
 
 This tool generates screenshots of rendered pages, it uses a 3rd party [urlBox](https://urlbox.io/) to translate a URL into an image of the rendered page. The URLs can be read from a Google sheet or can be retrieved by tag from Ophan.
